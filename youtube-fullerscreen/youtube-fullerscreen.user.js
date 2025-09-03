@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         YouTube Remove Deprecated Fullscreen UI
+// @name         YouTube Restore Deprecated Fullscreen UI
 // @namespace    https://github.com/CheatingChicken/lucibear-userscripts
 // @version      0.1
 // @description  Remove `deprecate-fullerscreen-ui` attribute from YouTube watch pages after load
@@ -21,19 +21,20 @@
 
     const ATTRIBUTE = "deprecate-fullerscreen-ui";
 
+    // Attempts to remove the attribute. Returns true if an attribute was removed.
     function removeAttributeIfPresent() {
         try {
             const el = document.querySelector(`[${ATTRIBUTE}]`);
             if (el) {
                 el.removeAttribute(ATTRIBUTE);
-                console.log("youtube-fullerscreen: removed attribute", ATTRIBUTE, el);
-            } else {
-                // Fail silently but provide a harmless log so the user can inspect behaviour
-                console.log("youtube-fullerscreen: no elements with attribute found:", ATTRIBUTE);
+                console.log("youtube-fullerscreen: removed attribute", ATTRIBUTE);
+                return true;
             }
+            return false;
         } catch (err) {
-            // Always fail silently for page behaviour — surface to console for debugging only
+            // Keep failures silent for page behaviour; log for debugging.
             console.log("youtube-fullerscreen: error while trying to remove attribute (ignored):", err);
+            return false;
         }
     }
 
@@ -46,18 +47,16 @@
     }
 
     // Lightweight MutationObserver to cover SPA navigations or late-inserted elements.
-    // It disconnects after it successfully handles the attribute once.
-    const observer = new MutationObserver((mutations, obs) => {
+    // Keep the observer running so the attribute is removed whenever the player
+    // adds it (e.g. when toggling fullscreen).
+    const observer = new MutationObserver((mutations) => {
         try {
-            const found = document.querySelector(`[${ATTRIBUTE}]`);
-            if (found) {
-                removeAttributeIfPresent();
-                obs.disconnect();
-            }
+            // Try to remove attr; only log when an actual removal occurred.
+            removeAttributeIfPresent();
         } catch (e) {
             // ignore observation errors
         }
     });
 
-    observer.observe(document.documentElement || document, { childList: true, subtree: true });
+    observer.observe(document.documentElement || document, { childList: true, subtree: true, attributes: true });
 })();
