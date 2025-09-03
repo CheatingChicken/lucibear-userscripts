@@ -3,8 +3,11 @@
 // @namespace    https://github.com/CheatingChicken/lucibear-userscripts
 // @version      0.1
 // @description  Remove `deprecate-fullerscreen-ui` attribute from YouTube watch pages after load
+// @author       Lucibear
 // @match        https://www.youtube.com/watch*
 // @run-at       document-idle
+// @updateURL    https://cheatingchicken.github.io/lucibear-userscripts/youtube-fullerscreen/youtube-fullerscreen.user.js
+// @downloadURL  https://cheatingchicken.github.io/lucibear-userscripts/youtube-fullerscreen/youtube-fullerscreen.user.js
 // @grant        none
 // ==/UserScript==
 

@@ -7,20 +7,21 @@ Repository layout
 
 Index of scripts
 
--   `youtube-fullerscreen/` — Re-enable YouTube fullscreen scroll feature.  
+-   `youtube-fullerscreen/`  
+    [Install here](/youtube-fullerscreen/youtube-fullerscreen.user.js)
+    — Re-enable YouTube fullscreen scroll feature.  
     This
     script removes the `deprecate-fullerscreen-ui` attribute so the browser's
     fullscreen scroll-to-seek behaviour is restored on watch pages.  
     Note: YouTube has marked this feature as deprecated; if YouTube disables it the
-    userscript may stop working.  
-    [Install here](/youtube-fullerscreen/youtube-fullerscreen.user.js)
+    userscript may stop working.
 
-How to use
+Install
 
--   Install a userscript manager (Tampermonkey, Violentmonkey, etc) and add the
-    `.user.js` file from the desired subfolder.
--   Keep each script inside its own folder with a short `README.md` and the
-    script file(s).
+Click the "Install here" links in the index to install a script  
+install a
+userscript manager first (recommended: Tampermonkey, Violentmonkey, or
+Greasemonkey).
 
 Contributing
 
