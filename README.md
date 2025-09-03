@@ -8,7 +8,7 @@ Repository layout
 Index of scripts
 
 -   `youtube-fullerscreen/`  
-    [Install here](/youtube-fullerscreen/youtube-fullerscreen.user.js)
+    [Install here](/youtube-fullerscreen/youtube-fullerscreen.user.js)  
     — Re-enable YouTube fullscreen scroll feature.  
     This
     script removes the `deprecate-fullerscreen-ui` attribute so the browser's

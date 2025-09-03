@@ -12,6 +12,8 @@ Thumbs.db
 # Editor
 .vscode/
 .idea/
+.markdownlint
+.markdownlint.json
 
 # Userscripts build artifacts
 dist/
