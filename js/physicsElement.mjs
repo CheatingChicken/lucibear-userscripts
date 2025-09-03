@@ -152,12 +152,25 @@ export class PhysicsElement {
             // schedule creation of repair hint after a short delay so it isn't obvious immediately
             try {
                 // only schedule the repair hint if repair is allowed for this piece
-                if (this._origRect && this._repairAllowed) {
+                if (this._origRect && this.isRepairable()) {
                     // clear any existing timeout just in case
                     if (this._hintTimeout) clearTimeout(this._hintTimeout);
                     this._hintTimeout = setTimeout(() => {
                         try {
-                            if (this._hintEl) return; // already created
+                            // Remove any existing repair hint elements in the document
+                            try {
+                                const existing = document.querySelectorAll(".repair-hint");
+                                for (const ex of existing) {
+                                    try {
+                                        ex.remove();
+                                    } catch (e) {}
+                                }
+                            } catch (e) {}
+
+                            // clear any previously stored hint element reference
+                            this._hintEl = null;
+
+                            // create a fresh hint element for this PE
                             this._hintEl = document.createElement("div");
                             this._hintEl.className = "repair-hint";
                             this._hintEl.style.left = this._origRect.left + "px";
@@ -168,7 +181,7 @@ export class PhysicsElement {
                             this._hintEl.style.opacity = "0.45";
                             document.body.appendChild(this._hintEl);
                         } catch (e) {}
-                    }, 2000);
+                    }, 500);
                 }
             } catch (e) {}
         };
@@ -230,7 +243,7 @@ export class PhysicsElement {
             } catch (e) {}
             // check repair proximity and possibly repair
             try {
-                if (this._origCenter && this._onRepair && this._repairAllowed) {
+                if (this._origCenter && this._onRepair && this.isRepairable()) {
                     const dx = this.pos.x - this._origCenter.x;
                     const dy = this.pos.y - this._origCenter.y;
                     const d = Math.sqrt(dx * dx + dy * dy);
@@ -278,6 +291,33 @@ export class PhysicsElement {
             this.el.addEventListener("click", onClick, true);
         } catch (e) {
             // ignore if element doesn't support pointer events for some reason
+        }
+    }
+
+    // Check if this physics element is repairable based on its original element's parent
+    isRepairable() {
+        try {
+            if (!this._origEl) return false;
+            if (this._origEl.classList && this._origEl.classList.contains("repairable")) return true;
+            const parent = this._origEl.parentElement;
+            if (!parent) return false;
+
+            // Check if parent is .wrap (container) or has repaired-original class
+            const isWrapChild = parent.classList && parent.classList.contains("wrap");
+            const isRepairedParent = parent.classList && parent.classList.contains("repaired-original");
+
+            const repairable = isWrapChild || isRepairedParent;
+
+            // Update visual indicator
+            if (repairable && this.el && this.el.classList) {
+                this.el.classList.add("repairable");
+            } else if (this.el && this.el.classList) {
+                this.el.classList.remove("repairable");
+            }
+
+            return repairable;
+        } catch (e) {
+            return false;
         }
     }
 

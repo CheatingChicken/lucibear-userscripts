@@ -2,7 +2,7 @@
 // Initializes fireworks, panel wiring, and explosion mode switching
 
 import { initFireworks, spawnFirework, getActiveCount, setParticlesPerFirework } from "./fireworks.mjs";
-import { initDomExplosion } from "./domExplosion.mjs";
+import { initDomExplosion } from "./explosion/index.mjs";
 import { initCanvasExplosion } from "./canvasExplosion.mjs";
 
 // Module scope state
