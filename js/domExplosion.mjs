@@ -650,21 +650,3 @@ export function initDomExplosion() {
         },
     };
 }
-
-// Debug helper: report shallow-cloneability of first N children of .wrap
-export async function debugSnapshotSample(n = 12) {
-    const container = document.querySelector(".wrap");
-    if (!container) return console.log("[domExplosion debug] no .wrap");
-    const items = Array.from(container.children).slice(0, n);
-    for (const el of items) {
-        const rect = el.getBoundingClientRect();
-        console.log(
-            "[domExplosion debug sample]",
-            el.tagName,
-            "rect=",
-            rect,
-            "shallowCloneOK=",
-            rect.width >= 4 && rect.height >= 4,
-        );
-    }
-}

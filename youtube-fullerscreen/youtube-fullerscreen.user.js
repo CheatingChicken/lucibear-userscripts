@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube Restore Deprecated Fullscreen UI
 // @namespace    https://github.com/CheatingChicken/lucibear-userscripts
-// @version      0.1
+// @version      0.2
 // @description  Remove `deprecate-fullerscreen-ui` attribute from YouTube watch pages after load
 // @author       Lucibear
 // @match        https://www.youtube.com/watch*
@@ -20,6 +20,42 @@
     // - Errors: fail silently; log a message if nothing was found or an error occurred
 
     const ATTRIBUTE = "deprecate-fullerscreen-ui";
+
+    // Translated CSS from adblock filter rules -> inject into the page so
+    // the full-screen layout behaves like the old UI. Kept in a single
+    // style element so it can be re-applied by the observer if YouTube
+    // replaces it during SPA navigations.
+    const CSS = /*css*/ `
+        ytd-watch-flexy[fullscreen] #single-column-container.ytd-watch-flexy,
+        ytd-watch-flexy[fullscreen] #columns.ytd-watch-flexy {
+            display: flex !important;
+        }
+        ytd-app[fullscreen] {
+            overflow: auto !important;
+        }
+        ytd-app[scrolling] {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: calc((var(--ytd-app-fullerscreen-scrollbar-width) + 1px) * -1) !important;
+            bottom: 0 !important;
+            overflow-x: auto !important;
+        }
+        `;
+
+    function injectCSS() {
+        try {
+            if (document.getElementById("yt-fullerscreen-fix-style")) return;
+            const s = document.createElement("style");
+            s.id = "yt-fullerscreen-fix-style";
+            s.textContent = CSS;
+            (document.head || document.documentElement).appendChild(s);
+            console.log("youtube-fullerscreen: injected CSS fixes");
+        } catch (err) {
+            // non-fatal
+            console.log("youtube-fullerscreen: failed to inject CSS (ignored):", err);
+        }
+    }
 
     // Attempts to remove the attribute. Returns true if an attribute was removed.
     function removeAttributeIfPresent() {
@@ -53,6 +89,8 @@
         try {
             // Try to remove attr; only log when an actual removal occurred.
             removeAttributeIfPresent();
+            // Ensure our CSS exists after SPA navigations or DOM replacements.
+            injectCSS();
         } catch (e) {
             // ignore observation errors
         }
