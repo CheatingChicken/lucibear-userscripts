@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube Restore Deprecated Fullscreen UI
 // @namespace    https://github.com/CheatingChicken/lucibear-userscripts
-// @version      0.2
+// @version      0.3
 // @description  Remove `deprecate-fullerscreen-ui` attribute from YouTube watch pages after load
 // @author       Lucibear
 // @match        https://www.youtube.com/watch*
@@ -26,6 +26,7 @@
     // style element so it can be re-applied by the observer if YouTube
     // replaces it during SPA navigations.
     const CSS = /*css*/ `
+        /* Layout fixes for fullscreen mode */
         ytd-watch-flexy[fullscreen] #single-column-container.ytd-watch-flexy,
         ytd-watch-flexy[fullscreen] #columns.ytd-watch-flexy {
             display: flex !important;
@@ -40,6 +41,30 @@
             right: calc((var(--ytd-app-fullerscreen-scrollbar-width) + 1px) * -1) !important;
             bottom: 0 !important;
             overflow-x: auto !important;
+        }
+        
+        /* Hide fullscreen grid elements when in fullscreen grid mode */
+        .html5-video-player.ytp-fullscreen:is(.ytp-fullscreen-grid-peeking, .ytp-fullscreen-grid-active) .ytp-fullscreen-grid {
+            display: none !important;
+        }
+        .html5-video-player.ytp-fullscreen:is(.ytp-fullscreen-grid-peeking, .ytp-fullscreen-grid-active) .ytp-gradient-bottom {
+            display: none !important;
+        }
+        
+        /* Position video controls at bottom when in fullscreen grid mode */
+        .html5-video-player.ytp-fullscreen:is(.ytp-fullscreen-grid-peeking, .ytp-fullscreen-grid-active) .ytp-chrome-bottom {
+            bottom: 0px !important;
+        }
+        .html5-video-player.ytp-fullscreen:is(.ytp-fullscreen-grid-peeking, .ytp-fullscreen-grid-active):not(:is(.ytp-autohide, .ytp-autohide-active)) .ytp-chrome-bottom {
+            opacity: unset !important;
+        }
+        
+        /* Position overlays container when in fullscreen grid mode */
+        .html5-video-player.ytp-fullscreen:is(.ytp-fullscreen-grid-peeking, .ytp-fullscreen-grid-active) .ytp-overlays-container {
+            bottom: 90px !important;
+        }
+        .html5-video-player.ytp-fullscreen:is(.ytp-fullscreen-grid-peeking, .ytp-fullscreen-grid-active):not(:is(.ytp-autohide, .ytp-autohide-active)) .ytp-overlays-container {
+            opacity: unset !important;
         }
         `;
 
