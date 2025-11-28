@@ -505,7 +505,7 @@
                     console.log("[Patreon Autoplay] Parsed current value:", JSON.parse(val));
                 }
             }
-            
+
             console.log("[Patreon Autoplay] Listener is now active and waiting for changes...");
             console.log("[Patreon Autoplay] NOTE: Listener only fires when value CHANGES, not on initial set");
 
@@ -552,9 +552,9 @@
             timestamp: Date.now(),
             url: "test://test",
             duration: 999,
-            currentTime: 999
+            currentTime: 999,
         };
-        
+
         if (typeof GM !== "undefined" && typeof GM.setValue === "function") {
             GM.setValue("streamable-video-state", JSON.stringify(testData)).then(() => {
                 console.log("[TEST] GM4 setValue complete");
@@ -565,7 +565,7 @@
         }
         console.log("═══════════════════════════════════════════════");
     }
-    
+
     // Expose test function to console
     window.testGMStorage = testGMStorage;
 
@@ -582,10 +582,9 @@
 
         // Set up cross-script communication with Streamable
         const streamableListenerActive = await setupStreamableListener();
-        
+
         // Expose test function
         log("Test function available: window.testGMStorage()");
-
 
         // Set up keyboard shortcut for manual navigation
         setupKeyboardShortcut();
