@@ -7,6 +7,8 @@
 // @match        https://streamable.com/*
 // @grant        GM.setValue
 // @grant        GM.getValue
+// @updateURL    https://cheatingchicken.github.io/lucibear-userscripts/patreon-autoplay/streamable-monitor.user.js
+// @downloadURL  https://cheatingchicken.github.io/lucibear-userscripts/patreon-autoplay/streamable-monitor.user.js
 // @run-at       document-end
 // ==/UserScript==
 
@@ -41,11 +43,12 @@
         }
     }
 
-    // Broadcast video state to GM storage
-    async function broadcastVideoState(state, videoElement) {
+    // Broadcast video state via postMessage to parent window
+    function broadcastVideoState(state, videoElement) {
         try {
             const videoId = getVideoId();
             const data = {
+                source: "streamable-monitor",
                 state: state,
                 videoId: videoId,
                 timestamp: Date.now(),
@@ -54,17 +57,14 @@
                 currentTime: videoElement ? videoElement.currentTime : null,
             };
 
-            // Use GM4 API if available, otherwise fall back to GM3
-            if (typeof GM !== "undefined" && typeof GM.setValue === "function") {
-                await GM.setValue("streamable-video-state", JSON.stringify(data));
-            } else if (typeof GM_setValue === "function") {
-                GM_setValue("streamable-video-state", JSON.stringify(data));
-            } else {
-                logError("No GM setValue function available");
-                return;
+            // Send message to parent window (Patreon page)
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage(data, "*");
             }
 
-            log("Broadcast state:", state, "for video:", videoId);
+            if (window.top && window.top !== window) {
+                window.top.postMessage(data, "*");
+            }
         } catch (error) {
             logError("Error broadcasting state:", error);
         }
@@ -75,27 +75,21 @@
         try {
             const video = document.querySelector("video");
             if (!video) {
-                log("No video element found");
                 return false;
             }
 
-            log("Video element found, setting up monitors");
-
             // Listen for ended event
             video.addEventListener("ended", function () {
-                log("Video ended!");
                 broadcastVideoState("ended", video);
             });
 
             // Listen for play event
             video.addEventListener("play", function () {
-                log("Video playing");
                 broadcastVideoState("playing", video);
             });
 
             // Listen for pause event
             video.addEventListener("pause", function () {
-                log("Video paused");
                 broadcastVideoState("paused", video);
             });
 
@@ -106,7 +100,6 @@
                 broadcastVideoState("playing", video);
             }
 
-            log("Video monitoring active");
             return true;
         } catch (error) {
             logError("Error setting up video monitor:", error);
@@ -124,12 +117,10 @@
             attempts++;
 
             if (setupVideoMonitor()) {
-                log("Successfully set up video monitoring");
                 return;
             }
 
             if (attempts >= maxAttempts) {
-                log("Video element not found after 10 seconds");
                 return;
             }
 
@@ -141,9 +132,7 @@
 
     // Initialize
     function init() {
-        log("Initializing Streamable monitor...");
-
-        // Clear any old state
+        // Broadcast initial state
         broadcastVideoState("initialized", null);
 
         // Start polling for video
@@ -156,6 +145,4 @@
     } else {
         init();
     }
-
-    log("Script loaded");
 })();

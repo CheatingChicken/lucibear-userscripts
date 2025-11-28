@@ -1,18 +1,159 @@
 // ==UserScript==
 // @name         Patreon Collection Autoplay
 // @namespace    https://github.com/CheatingChicken/lucibear-userscripts
-// @version      1.2.0
-// @description  Automatically plays the next video in a Patreon collection with multi-tab support
+// @version      1.3.0
+// @description  Automatically plays the next video in a Patreon collection (Streamable videos)
 // @author       Lucibear
 // @match        https://www.patreon.com/posts/*
-// @grant        GM.getValue
-// @grant        GM.setValue
-// @grant        GM.addValueChangeListener
+// @match        https://streamable.com/*
+// @grant        none
+// @updateURL    https://cheatingchicken.github.io/lucibear-userscripts/patreon-autoplay/patreon-autoplay.user.js
+// @downloadURL  https://cheatingchicken.github.io/lucibear-userscripts/patreon-autoplay/patreon-autoplay.user.js
 // @run-at       document-end
 // ==/UserScript==
 
 (function () {
     "use strict";
+
+    // Detect which page we're on
+    const isPatreonPage = window.location.hostname.includes("patreon.com");
+    const isStreamablePage = window.location.hostname.includes("streamable.com");
+
+    // =============================================================================
+    // STREAMABLE VIDEO MONITOR (runs on streamable.com)
+    // =============================================================================
+    if (isStreamablePage) {
+        const LOG_PREFIX = "[Streamable Monitor]";
+
+        function log(message, ...args) {
+            console.log(`${LOG_PREFIX} ${message}`, ...args);
+        }
+
+        function logError(message, ...args) {
+            console.error(`${LOG_PREFIX} ${message}`, ...args);
+        }
+
+        // Extract video ID from URL
+        function getVideoId() {
+            try {
+                const url = new URL(window.location.href);
+                const pathParts = url.pathname.split("/").filter((p) => p);
+                const videoId = pathParts[pathParts.length - 1];
+                return videoId || null;
+            } catch (error) {
+                logError("Error extracting video ID:", error);
+                return null;
+            }
+        }
+
+        // Broadcast video state via postMessage to parent window
+        function broadcastVideoState(state, videoElement) {
+            try {
+                const videoId = getVideoId();
+                const data = {
+                    source: "streamable-monitor",
+                    state: state,
+                    videoId: videoId,
+                    timestamp: Date.now(),
+                    url: window.location.href,
+                    duration: videoElement ? videoElement.duration : null,
+                    currentTime: videoElement ? videoElement.currentTime : null,
+                };
+
+                // Send message to parent window (Patreon page)
+                if (window.parent && window.parent !== window) {
+                    window.parent.postMessage(data, "*");
+                }
+
+                if (window.top && window.top !== window) {
+                    window.top.postMessage(data, "*");
+                }
+            } catch (error) {
+                logError("Error broadcasting state:", error);
+            }
+        }
+
+        // Setup video monitoring
+        function setupVideoMonitor() {
+            try {
+                const video = document.querySelector("video");
+                if (!video) {
+                    return false;
+                }
+
+                // Listen for ended event
+                video.addEventListener("ended", function () {
+                    broadcastVideoState("ended", video);
+                });
+
+                // Listen for play event
+                video.addEventListener("play", function () {
+                    broadcastVideoState("playing", video);
+                });
+
+                // Listen for pause event
+                video.addEventListener("pause", function () {
+                    broadcastVideoState("paused", video);
+                });
+
+                // Broadcast initial state
+                if (video.paused) {
+                    broadcastVideoState("paused", video);
+                } else {
+                    broadcastVideoState("playing", video);
+                }
+
+                return true;
+            } catch (error) {
+                logError("Error setting up video monitor:", error);
+                return false;
+            }
+        }
+
+        // Poll for video element
+        function pollForVideo() {
+            let attempts = 0;
+            const maxAttempts = 20;
+            const pollInterval = 500;
+
+            const poll = () => {
+                attempts++;
+
+                if (setupVideoMonitor()) {
+                    return;
+                }
+
+                if (attempts >= maxAttempts) {
+                    return;
+                }
+
+                setTimeout(poll, pollInterval);
+            };
+
+            poll();
+        }
+
+        // Initialize Streamable monitor
+        function initStreamable() {
+            broadcastVideoState("initialized", null);
+            pollForVideo();
+        }
+
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", initStreamable);
+        } else {
+            initStreamable();
+        }
+
+        return; // Exit early for Streamable pages
+    }
+
+    // =============================================================================
+    // PATREON AUTOPLAY (runs on patreon.com)
+    // =============================================================================
+    if (!isPatreonPage) {
+        return; // Exit if not on Patreon or Streamable
+    }
 
     const STORAGE_KEY = "patreon-autoplay-enabled";
     const LOG_PREFIX = "[Patreon Autoplay]";
@@ -189,6 +330,18 @@
             try {
                 const data = event.data;
 
+                // Check if this is from our Streamable monitor script
+                if (data && typeof data === "object" && data.source === "streamable-monitor") {
+                    // Validate video ID matches current iframe
+                    if (validateVideoState(data)) {
+                        if (data.state === "ended") {
+                            log("Video ended, navigating to next post...");
+                            handleVideoEnded();
+                        }
+                    }
+                    return;
+                }
+
                 // Only process messages from video player origins
                 if (
                     !event.origin.includes("streamable") &&
@@ -254,7 +407,7 @@
         });
 
         messageListenerAdded = true;
-        log("PostMessage listener set up (supports Vimeo, YouTube if present)");
+        log("PostMessage listener set up (listening for Streamable monitor + Vimeo/YouTube)");
         return messageListenerAdded;
     }
 
@@ -371,6 +524,7 @@
 
             // Insert after previous post button
             prevButton.parentNode.insertBefore(toggleContainer, prevButton.nextSibling);
+
             log("Autoplay toggle created and inserted");
         } catch (error) {
             logError("Error creating autoplay toggle:", error);
@@ -380,7 +534,8 @@
     // Get current Streamable video ID from iframe
     function getCurrentStreamableVideoId() {
         try {
-            const iframe = document.querySelector('iframe[src*="streamable.com"]');
+            // Look for iframe that contains streamable in src or embedly with streamable
+            const iframe = document.querySelector('iframe[src*="streamable"], iframe[src*="embedly"]');
             if (!iframe) {
                 return null;
             }
@@ -390,13 +545,33 @@
                 return null;
             }
 
-            // Extract video ID from iframe src
-            // Format: https://streamable.com/o/2fds33?referrer=...
-            const url = new URL(iframeSrc);
-            const pathParts = url.pathname.split("/").filter((p) => p);
-            const videoId = pathParts[pathParts.length - 1];
+            // Extract video ID from different possible formats:
+            // 1. Direct: https://streamable.com/o/a392qi
+            // 2. Embedly: //cdn.embedly.com/widgets/media.html?src=https%3A%2F%2Fstreamable.com%2Fo%2Fa392qi&...
 
-            log("Current iframe video ID:", videoId);
+            let videoId = null;
+
+            // Check if it's an embedly iframe with encoded streamable URL
+            if (iframeSrc.includes("embedly")) {
+                // Extract the 'src' parameter which contains the encoded Streamable URL
+                const srcMatch = iframeSrc.match(/[?&]src=([^&]+)/);
+                if (srcMatch) {
+                    const encodedUrl = srcMatch[1];
+                    const decodedUrl = decodeURIComponent(encodedUrl);
+
+                    // Extract video ID from decoded URL: https://streamable.com/o/a392qi
+                    const idMatch = decodedUrl.match(/streamable\.com\/(?:o\/)?([a-zA-Z0-9]+)/);
+                    if (idMatch) {
+                        videoId = idMatch[1];
+                    }
+                }
+            } else {
+                // Direct streamable iframe - extract from path
+                const url = new URL(iframeSrc.startsWith("//") ? "https:" + iframeSrc : iframeSrc);
+                const pathParts = url.pathname.split("/").filter((p) => p);
+                videoId = pathParts[pathParts.length - 1];
+            }
+
             return videoId || null;
         } catch (error) {
             logError("Error getting current video ID:", error);
@@ -407,22 +582,65 @@
     // Validate if the received video state matches current page
     function validateVideoState(data) {
         if (!data || !data.videoId) {
-            log("No video ID in received state");
             return false;
         }
 
         const currentVideoId = getCurrentStreamableVideoId();
         if (!currentVideoId) {
-            log("No Streamable iframe found on current page");
             return false;
         }
 
-        const matches = data.videoId === currentVideoId;
-        if (!matches) {
-            log("Video ID mismatch - received:", data.videoId, "current:", currentVideoId);
-        }
+        return data.videoId === currentVideoId;
+    }
 
-        return matches;
+    // Setup keyboard shortcut for manual next
+    function setupKeyboardShortcut() {
+        const hasGM4 = typeof GM !== "undefined" && typeof GM.getValue === "function";
+        const hasGM3 = typeof GM_getValue === "function";
+
+        if (!hasGM4 && !hasGM3) return;
+
+        log("Starting GM storage polling (500ms interval)...");
+
+        let pollCount = 0;
+        pollingInterval = setInterval(async () => {
+            try {
+                pollCount++;
+                let currentValue;
+
+                if (hasGM4) {
+                    currentValue = await GM.getValue("streamable-video-state");
+                } else if (hasGM3) {
+                    currentValue = GM_getValue("streamable-video-state");
+                }
+
+                // Log every 10th poll to show it's working
+                if (pollCount % 10 === 0) {
+                    console.log(`[Poll #${pollCount}] Checking... Current value exists: ${!!currentValue}`);
+                }
+
+                if (currentValue && currentValue !== lastKnownState) {
+                    console.log("🎉🎉🎉 POLLING DETECTED CHANGE! 🎉🎉🎉");
+                    console.log("Poll #", pollCount);
+                    console.log("Old:", lastKnownState);
+                    console.log("New:", currentValue);
+
+                    lastKnownState = currentValue;
+
+                    try {
+                        const data = JSON.parse(currentValue);
+                        console.log("📦 Parsed data:", data);
+                        console.log("📦 State:", data.state);
+                        console.log("📦 Video ID:", data.videoId);
+                        console.log("📦 Timestamp:", data.timestamp);
+                    } catch (error) {
+                        logError("Error parsing polled state:", error);
+                    }
+                }
+            } catch (error) {
+                logError("Error polling GM storage:", error);
+            }
+        }, 500);
     }
 
     // Setup cross-script communication with Streamable monitor
@@ -508,6 +726,10 @@
 
             console.log("[Patreon Autoplay] Listener is now active and waiting for changes...");
             console.log("[Patreon Autoplay] NOTE: Listener only fires when value CHANGES, not on initial set");
+            console.log("[Patreon Autoplay] WARNING: Listener may not work cross-domain, starting polling fallback...");
+
+            // Start polling as fallback (listener doesn't work cross-domain reliably)
+            startPollingGMStorage();
 
             return true;
         } catch (error) {
@@ -542,33 +764,6 @@
         }
     }
 
-    // Test function to manually trigger GM storage value
-    function testGMStorage() {
-        console.log("═══════════════════════════════════════════════");
-        console.log("[TEST] Manually setting GM storage value...");
-        const testData = {
-            state: "test",
-            videoId: "TEST123",
-            timestamp: Date.now(),
-            url: "test://test",
-            duration: 999,
-            currentTime: 999,
-        };
-
-        if (typeof GM !== "undefined" && typeof GM.setValue === "function") {
-            GM.setValue("streamable-video-state", JSON.stringify(testData)).then(() => {
-                console.log("[TEST] GM4 setValue complete");
-            });
-        } else if (typeof GM_setValue === "function") {
-            GM_setValue("streamable-video-state", JSON.stringify(testData));
-            console.log("[TEST] GM3 setValue complete");
-        }
-        console.log("═══════════════════════════════════════════════");
-    }
-
-    // Expose test function to console
-    window.testGMStorage = testGMStorage;
-
     // Initialize the script
     async function init() {
         log("Initializing...");
@@ -580,20 +775,12 @@
 
         log("Collection page detected");
 
-        // Set up cross-script communication with Streamable
-        const streamableListenerActive = await setupStreamableListener();
-
-        // Expose test function
-        log("Test function available: window.testGMStorage()");
-
         // Set up keyboard shortcut for manual navigation
         setupKeyboardShortcut();
 
-        // Set up postMessage listener for cross-origin iframes
+        // Set up postMessage listener for iframe communication
         setupPostMessageListener();
-
-        // Poll for video element
-        await pollForVideo();
+        log("✓ PostMessage listener active for Streamable video events");
 
         // Try to create toggle immediately
         createAutoplayToggle();
@@ -627,9 +814,6 @@
             logError("Error settings up MutationObserver:", error);
         }
 
-        if (streamableListenerActive) {
-            log("✓ Streamable cross-script communication active");
-        }
         log("Tip: Press 'N' key to manually go to next post");
     }
 
